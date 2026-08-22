@@ -183,3 +183,63 @@ export function auditPairs(pairs: readonly PairInput[]): PairResult[] {
     };
   });
 }
+
+/** OKLab の座標。`L` は 0（黒）〜1（白）の知覚的な明度 */
+export interface Oklab {
+  L: number;
+  a: number;
+  b: number;
+}
+
+/**
+ * sRGB を OKLab に変換する。
+ *
+ * `L` は知覚的に均等な明度で、`relativeLuminance()`（WCAG の線形光）とは別物。
+ * 濃淡を等間隔の段階に割り当てたい用途（文字の濃淡ランプなど）ではこちらを使う。
+ * 中間グレー `#808080` の場合、L は約 0.60 だが相対輝度は約 0.22 になる。
+ */
+export function toOklab(color: ColorInput): Oklab {
+  const { r, g, b } = toRgb(color);
+  const red = toLinear(r);
+  const green = toLinear(g);
+  const blue = toLinear(b);
+
+  const l = Math.cbrt(0.4122214708 * red + 0.5363325363 * green + 0.0514459929 * blue);
+  const m = Math.cbrt(0.2119034982 * red + 0.6806995451 * green + 0.1073969566 * blue);
+  const s = Math.cbrt(0.0883024619 * red + 0.2817188376 * green + 0.6299787005 * blue);
+
+  return {
+    L: 0.2104542553 * l + 0.793617785 * m - 0.0040720468 * s,
+    a: 1.9779984951 * l - 2.428592205 * m + 0.4505937099 * s,
+    b: 0.0259040371 * l + 0.7827717662 * m - 0.808675766 * s,
+  };
+}
+
+/** OKLab 空間でのユークリッド距離。0 に近いほど似た色 */
+export function colorDistance(a: ColorInput, b: ColorInput): number {
+  const first = toOklab(a);
+  const second = toOklab(b);
+  return Math.hypot(first.L - second.L, first.a - second.a, first.b - second.b);
+}
+
+/**
+ * パレットの中から、対象に最も近い色を選ぶ。
+ * 画像をサイトの配色に量子化するときなどに使う。
+ */
+export function nearestColor(target: ColorInput, palette: readonly ColorInput[]): string {
+  const [first] = palette;
+  if (first === undefined) {
+    throw new TypeError("パレットが空です");
+  }
+
+  let best = first;
+  let bestDistance = Number.POSITIVE_INFINITY;
+  for (const candidate of palette) {
+    const distance = colorDistance(target, candidate);
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      best = candidate;
+    }
+  }
+  return formatHex(best);
+}
