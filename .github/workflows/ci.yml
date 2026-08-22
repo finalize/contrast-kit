@@ -34,5 +34,17 @@ jobs:
         run: pnpm exec vp run -r build
       - name: 整形・lint・型チェック
         run: pnpm exec vp check
+      # ブラウザモードのテスト（DOM とビジュアルリグレッション）に必要
+      - name: Chromium を取得
+        run: pnpm exec playwright install chromium
       - name: テスト
         run: pnpm exec vp run -r test
+      # 基準画像はプラットフォームごとに別ファイル（matrix-chromium-linux.png）。
+      # 失敗時に生成物を持ち帰れるようにしておく
+      - name: スクリーンショットを保存
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: screenshots
+          path: apps/website/tests/browser/__screenshots__/
+          retention-days: 3

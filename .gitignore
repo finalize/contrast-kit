@@ -31,3 +31,6 @@ dist-ssr
 
 # AI agent worktrees
 .claude/worktrees/
+
+# テスト失敗時に残る一時的なスクリーンショット（基準画像は __screenshots__ 側）
+.vitest-attachments/

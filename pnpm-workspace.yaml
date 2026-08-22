@@ -12,6 +12,8 @@ minimumReleaseAge: 1440
 
 catalog:
   "@types/node": ^24
+  "@vitest/browser-playwright": ^4.1.11
+  playwright: ^1.62.1
   typescript: ^7.0.2
   vite: npm:@voidzero-dev/vite-plus-core@0.2.9
   vite-plus: 0.2.9

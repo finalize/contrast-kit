@@ -11,6 +11,8 @@
     "contrast-kit": "workspace:*"
   },
   "devDependencies": {
+    "@vitest/browser-playwright": "catalog:",
+    "playwright": "catalog:",
     "typescript": "^7.0.2",
     "vite": "catalog:",
     "vite-plus": "catalog:"
