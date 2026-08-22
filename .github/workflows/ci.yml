@@ -28,9 +28,11 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # check は website から contrast-kit の型（dist/index.d.mts）を解決するため、
+      # 先にビルドしておく必要がある
+      - name: ビルド
+        run: pnpm exec vp run -r build
       - name: 整形・lint・型チェック
         run: pnpm exec vp check
       - name: テスト
         run: pnpm exec vp run -r test
-      - name: ビルド
-        run: pnpm exec vp run -r build
