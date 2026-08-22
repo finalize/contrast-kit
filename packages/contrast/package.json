@@ -1,6 +1,6 @@
 {
   "name": "contrast-kit",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "WCAG contrast ratio calculation and palette auditing for design tokens.",
   "keywords": [
     "a11y",
