@@ -19,6 +19,19 @@ vp run -r build   # 全パッケージのビルド
 
 `apps/website` は `contrast-kit` のビルド結果を読むため、`test` と `build` は依存パッケージの `build` 後に走るよう `apps/website/vite.config.ts` の `dependsOn` で順序を指定している。
 
+## デプロイ
+
+`apps/website` は Cloudflare Workers の静的アセットとして配信する。main にマージされると CI が自動でデプロイする。
+
+必要なシークレット（リポジトリに登録する）:
+
+```bash
+gh secret set CLOUDFLARE_API_TOKEN --repo finalize/contrast-kit
+gh secret set CLOUDFLARE_ACCOUNT_ID --repo finalize/contrast-kit
+```
+
+手元から流したいときは `cd apps/website && pnpm exec wrangler deploy`（初回だけ `wrangler login`）。
+
 ## テスト
 
 | 種類                     | 場所                                             | 何を見るか                          |
