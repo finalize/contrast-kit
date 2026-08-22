@@ -5,6 +5,11 @@ packages:
 
 catalogMode: prefer
 
+# wrangler が依存する workerd / esbuild はインストール時にビルドスクリプトを走らせる
+allowBuilds:
+  esbuild: true
+  workerd: true
+
 # 公開から24時間経っていないパッケージは選ばない。
 # Vite+ はロックファイルの検証でこの基準を使うが、明示しないと解決時には効かず、
 # 手元では通って CI で落ちることがある。
@@ -18,6 +23,7 @@ catalog:
   typescript: ^7.0.2
   vite: npm:@voidzero-dev/vite-plus-core@0.2.9
   vite-plus: 0.2.9
+  wrangler: ^4.125.0
 overrides:
   vite: "catalog:"
 peerDependencyRules:
