@@ -40,6 +40,15 @@ function toRgb(color: ColorInput): Rgb {
   return typeof color === "string" ? parseHex(color) : color;
 }
 
+/**
+ * 色を `#rrggbb` 形式の文字列にする。
+ * 文字列で渡した場合も 6 桁に正規化して返す。
+ */
+export function formatHex(color: ColorInput): string {
+  const { r, g, b } = toRgb(color);
+  return `#${[r, g, b].map((channel) => channel.toString(16).padStart(2, "0")).join("")}`;
+}
+
 /** sRGB のチャンネル値（0-255）を線形値に戻す */
 function toLinear(channel: number): number {
   const c = channel / 255;
@@ -94,4 +103,83 @@ export function wcagLevel(ratio: number, options: WcagOptions = {}): WcagLevel {
 /** 2色の組み合わせが AA を満たすか */
 export function meetsAA(fg: ColorInput, bg: ColorInput, options: WcagOptions = {}): boolean {
   return wcagLevel(contrastRatio(fg, bg), options) !== "fail";
+}
+
+/**
+ * CSS の文字列から、指定したセレクタのルール本体を取り出す。
+ * ネストした波括弧は数えて対応づける。見つからなければ undefined。
+ */
+export function extractRuleBlock(css: string, selector: string): string | undefined {
+  const index = css.indexOf(selector);
+  if (index === -1) return undefined;
+
+  const open = css.indexOf("{", index + selector.length);
+  if (open === -1) return undefined;
+
+  let depth = 0;
+  for (let i = open; i < css.length; i++) {
+    const char = css[i];
+    if (char === "{") depth++;
+    else if (char === "}") {
+      depth--;
+      if (depth === 0) return css.slice(open + 1, i);
+    }
+  }
+  return undefined;
+}
+
+/**
+ * CSS カスタムプロパティ（`--name: value;`）を名前と値の組に変換する。
+ * 名前は `--` を含んだまま返す。コメントは無視する。
+ */
+export function parseCssVariables(css: string): Record<string, string> {
+  const withoutComments = css.replace(/\/\*[\s\S]*?\*\//g, "");
+  const variables: Record<string, string> = {};
+
+  for (const match of withoutComments.matchAll(/(--[\w-]+)\s*:\s*([^;]+);/g)) {
+    variables[match[1]!] = match[2]!.trim();
+  }
+  return variables;
+}
+
+/** 検査したい前景色と背景色の組み合わせ */
+export interface PairInput {
+  /** 結果の表示に使う名前。省略時は "fg on bg" 形式で埋める */
+  name?: string;
+  fg: ColorInput;
+  bg: ColorInput;
+  large?: boolean;
+}
+
+/** 1組ぶんの検査結果 */
+export interface PairResult {
+  name: string;
+  fg: ColorInput;
+  bg: ColorInput;
+  large: boolean;
+  ratio: number;
+  level: WcagLevel;
+  /** AA 以上を満たしていれば true */
+  passes: boolean;
+}
+
+/**
+ * 複数の組み合わせをまとめて検査する。
+ * 結果は入力の順序を保つ。
+ */
+export function auditPairs(pairs: readonly PairInput[]): PairResult[] {
+  return pairs.map((pair) => {
+    const large = pair.large ?? false;
+    const ratio = contrastRatio(pair.fg, pair.bg);
+    const level = wcagLevel(ratio, { large });
+    return {
+      name: pair.name ?? `${formatHex(pair.fg)} on ${formatHex(pair.bg)}`,
+      fg: pair.fg,
+      bg: pair.bg,
+      large,
+      ratio,
+      level,
+      passes: level !== "fail",
+    };
+  });
 }

@@ -224,6 +224,10 @@ importers:
         version: 0.2.9(@types/node@26.2.0)(@voidzero-dev/vite-plus-core@0.2.9(@types/node@26.2.0)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.0))(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.0)
 
   apps/website:
+    dependencies:
+      contrast-kit:
+        specifier: workspace:*
+        version: link:../../packages/contrast
     devDependencies:
       typescript:
         specifier: ^7.0.2

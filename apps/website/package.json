@@ -5,8 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "vp dev",
-    "build": "tsc && vp build",
     "preview": "vp preview"
+  },
+  "dependencies": {
+    "contrast-kit": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^7.0.2",

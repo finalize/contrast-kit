@@ -1,60 +1,127 @@
 import "./style.css";
-import typescriptLogo from "./assets/typescript.svg";
-import viteLogo from "./assets/vite.svg";
-import heroImg from "./assets/hero.png";
-import { setupCounter } from "./counter.ts";
+import { formatHex } from "contrast-kit";
+import { buildMatrix, findIssues, readSwatches } from "./palette.ts";
+import type { Swatch } from "./palette.ts";
 
-document.querySelector<HTMLDivElement>("#app")!.innerHTML = `
-<section id="center">
-  <div class="hero">
-    <img src="${heroImg}" class="base" width="170" height="179">
-    <img src="${typescriptLogo}" class="framework" alt="TypeScript logo"/>
-    <img src="${viteLogo}" class="vite" alt="Vite logo" />
-  </div>
-  <div>
-    <h1>Get started</h1>
-    <p>Edit <code>src/main.ts</code> and save to test <code>HMR</code></p>
-  </div>
-  <button id="counter" type="button" class="counter"></button>
-</section>
+const SAMPLE = `:root {
+  --bg: #0b0e0f;
+  --bg-elev: #131819;
+  --fg: #cfd8d3;
+  --fg-dim: #8b9a93;
+  --accent: #7ee787;
+  --accent-2: #79c0ff;
+  --accent-3: #ffa657;
+  --border: #223028;
+}`;
 
-<div class="ticks"></div>
+const app = document.querySelector<HTMLDivElement>("#app")!;
 
-<section id="next-steps">
-  <div id="docs">
-    <svg class="icon" role="presentation" aria-hidden="true"><use href="/icons.svg#documentation-icon"></use></svg>
-    <h2>Documentation</h2>
-    <p>Your questions, answered</p>
-    <ul>
-      <li>
-        <a href="https://vite.dev/" target="_blank">
-          <img class="logo" src="${viteLogo}" alt="" />
-          Explore Vite
-        </a>
-      </li>
-      <li>
-        <a href="https://www.typescriptlang.org" target="_blank">
-          <img class="button-icon" src="${typescriptLogo}" alt="">
-          Learn more
-        </a>
-      </li>
-    </ul>
-  </div>
-  <div id="social">
-    <svg class="icon" role="presentation" aria-hidden="true"><use href="/icons.svg#social-icon"></use></svg>
-    <h2>Connect with us</h2>
-    <p>Join the Vite community</p>
-    <ul>
-      <li><a href="https://github.com/vitejs/vite" target="_blank"><svg class="button-icon" role="presentation" aria-hidden="true"><use href="/icons.svg#github-icon"></use></svg>GitHub</a></li>
-      <li><a href="https://chat.vite.dev/" target="_blank"><svg class="button-icon" role="presentation" aria-hidden="true"><use href="/icons.svg#discord-icon"></use></svg>Discord</a></li>
-      <li><a href="https://x.com/vite_js" target="_blank"><svg class="button-icon" role="presentation" aria-hidden="true"><use href="/icons.svg#x-icon"></use></svg>X.com</a></li>
-      <li><a href="https://bsky.app/profile/vite.dev" target="_blank"><svg class="button-icon" role="presentation" aria-hidden="true"><use href="/icons.svg#bluesky-icon"></use></svg>Bluesky</a></li>
-    </ul>
-  </div>
-</section>
+app.innerHTML = `
+<header class="site-header">
+  <h1>contrast-kit</h1>
+  <p>配色を貼り付けると、全組み合わせのコントラスト比と WCAG の判定を出します。</p>
+</header>
 
-<div class="ticks"></div>
-<section id="spacer"></section>
+<main>
+  <section class="panel">
+    <label class="field-label" for="source">CSS カスタムプロパティ、または色のリスト</label>
+    <textarea id="source" spellcheck="false" rows="12"></textarea>
+    <p class="hint"><code>--name: #hex;</code> でも、<code>#hex</code> を並べるだけでも読み取ります。</p>
+  </section>
+
+  <section class="panel" aria-labelledby="issues-heading">
+    <h2 id="issues-heading">本文サイズで AA を満たさない組み合わせ</h2>
+    <p class="hint">すべての組み合わせを機械的に並べています。背景色どうしなど、実際には重ねない組は読み飛ばしてください。</p>
+    <div id="issues" aria-live="polite"></div>
+  </section>
+
+  <section class="panel" aria-labelledby="matrix-heading">
+    <h2 id="matrix-heading">全組み合わせ</h2>
+    <p class="hint">行が前景色、列が背景色。数値はコントラスト比です。</p>
+    <div class="table-scroll">
+      <table id="matrix"></table>
+    </div>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <a href="https://github.com/finalize/contrast-kit">GitHub</a>
+  <a href="https://www.npmjs.com/package/contrast-kit">npm</a>
+</footer>
 `;
 
-setupCounter(document.querySelector<HTMLButtonElement>("#counter")!);
+const source = app.querySelector<HTMLTextAreaElement>("#source")!;
+const issuesArea = app.querySelector<HTMLDivElement>("#issues")!;
+const matrixTable = app.querySelector<HTMLTableElement>("#matrix")!;
+
+function escapeHtml(value: string): string {
+  return value.replace(
+    /[&<>"]/g,
+    (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[char]!,
+  );
+}
+
+function renderIssues(swatches: readonly Swatch[]): void {
+  const issues = findIssues(swatches);
+
+  if (swatches.length < 2) {
+    issuesArea.innerHTML = `<p class="empty">色を2つ以上入力してください。</p>`;
+    return;
+  }
+  if (issues.length === 0) {
+    issuesArea.innerHTML = `<p class="ok">すべての組み合わせが AA を満たしています。</p>`;
+    return;
+  }
+
+  issuesArea.innerHTML = `<ul class="issues">${issues
+    .map(
+      (issue) => `
+      <li>
+        <span class="issue-swatch" style="background:${escapeHtml(formatHex(issue.bg))};color:${escapeHtml(formatHex(issue.fg))}">Aa</span>
+        <span class="issue-name">${escapeHtml(issue.name)}</span>
+        <span class="issue-ratio">${issue.ratio.toFixed(2)}:1</span>
+      </li>`,
+    )
+    .join("")}</ul>`;
+}
+
+function renderMatrix(swatches: readonly Swatch[]): void {
+  if (swatches.length === 0) {
+    matrixTable.innerHTML = "";
+    return;
+  }
+
+  const matrix = buildMatrix(swatches);
+  const head = `<thead><tr><th scope="col"><span class="visually-hidden">前景色</span></th>${swatches
+    .map((swatch) => `<th scope="col"><code>${escapeHtml(swatch.name)}</code></th>`)
+    .join("")}</tr></thead>`;
+
+  const body = swatches
+    .map((fg, row) => {
+      const cells = swatches
+        .map((bg, column) => {
+          if (row === column) return `<td class="same" aria-label="同じ色">—</td>`;
+          const ratio = matrix[row]![column]!;
+          const label = `${fg.name} を ${bg.name} の上に置くと ${ratio.toFixed(2)} 対 1`;
+          return `<td style="background:${escapeHtml(bg.hex)};color:${escapeHtml(fg.hex)}" title="${escapeHtml(label)}">
+            <span aria-hidden="true">${ratio.toFixed(2)}</span>
+            <span class="visually-hidden">${escapeHtml(label)}</span>
+          </td>`;
+        })
+        .join("");
+      return `<tr><th scope="row"><code>${escapeHtml(fg.name)}</code></th>${cells}</tr>`;
+    })
+    .join("");
+
+  matrixTable.innerHTML = `${head}<tbody>${body}</tbody>`;
+}
+
+function update(): void {
+  const swatches = readSwatches(source.value);
+  renderIssues(swatches);
+  renderMatrix(swatches);
+}
+
+source.value = SAMPLE;
+source.addEventListener("input", update);
+update();
