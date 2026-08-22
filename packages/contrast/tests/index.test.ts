@@ -3,7 +3,10 @@ import {
   auditPairs,
   contrastRatio,
   extractRuleBlock,
+  colorDistance,
   formatHex,
+  nearestColor,
+  toOklab,
   meetsAA,
   parseCssVariables,
   parseHex,
@@ -101,4 +104,30 @@ test("name を省略すると色から自動で埋まる", () => {
 test("formatHex は 3桁も Rgb も 6桁の hex にする", () => {
   expect(formatHex("#1a7")).toBe("#11aa77");
   expect(formatHex({ r: 26, g: 127, b: 55 })).toBe("#1a7f37");
+});
+
+test("OKLab は黒が 0、白が 1", () => {
+  expect(toOklab("#000").L).toBeCloseTo(0, 10);
+  expect(toOklab("#fff").L).toBeCloseTo(1, 6);
+  expect(toOklab("#fff").a).toBeCloseTo(0, 6);
+  expect(toOklab("#fff").b).toBeCloseTo(0, 6);
+});
+
+test("知覚的な明度は相対輝度と別物", () => {
+  // 中間グレーは、見た目には「半分の明るさ」だが線形光では 2 割強しかない
+  expect(toOklab("#808080").L).toBeCloseTo(0.6, 2);
+  expect(relativeLuminance("#808080")).toBeCloseTo(0.216, 3);
+});
+
+test("同じ色の距離は 0、白と黒は離れている", () => {
+  expect(colorDistance("#1a7f37", "#1a7f37")).toBe(0);
+  expect(colorDistance("#000", "#fff")).toBeCloseTo(1, 6);
+  expect(colorDistance("#1a7f37", "#1a7e37")).toBeLessThan(0.01);
+});
+
+test("パレットから最も近い色を選ぶ", () => {
+  const palette = ["#0b0e0f", "#cfd8d3", "#7ee787", "#79c0ff"];
+  expect(nearestColor("#80ee88", palette)).toBe("#7ee787");
+  expect(nearestColor("#101314", palette)).toBe("#0b0e0f");
+  expect(() => nearestColor("#fff", [])).toThrow(TypeError);
 });
