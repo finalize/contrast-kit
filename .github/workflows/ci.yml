@@ -36,6 +36,8 @@ jobs:
         run: pnpm exec vp check
       # ブラウザモードのテスト（DOM とビジュアルリグレッション）に必要
       - name: Chromium を取得
+        # playwright は apps/website の devDependency なので、そのディレクトリで実行する
+        working-directory: apps/website
         run: pnpm exec playwright install chromium
       - name: テスト
         run: pnpm exec vp run -r test
