@@ -3,9 +3,14 @@ import {
   auditPairs,
   contrastRatio,
   extractRuleBlock,
+  apcaContrast,
   colorDistance,
+  fromOklab,
   formatHex,
   nearestColor,
+  distancesAcrossVision,
+  simulateColorVision,
+  suggestAccessible,
   toOklab,
   meetsAA,
   parseCssVariables,
@@ -130,4 +135,92 @@ test("パレットから最も近い色を選ぶ", () => {
   expect(nearestColor("#80ee88", palette)).toBe("#7ee787");
   expect(nearestColor("#101314", palette)).toBe("#0b0e0f");
   expect(() => nearestColor("#fff", [])).toThrow(TypeError);
+});
+
+test("APCA は公表されている参照値と一致する", () => {
+  // https://github.com/Myndex/apca-w3 の参照値
+  expect(apcaContrast("#000000", "#ffffff")).toBeCloseTo(106.04, 2);
+  expect(apcaContrast("#ffffff", "#000000")).toBeCloseTo(-107.88, 2);
+  expect(apcaContrast("#888888", "#ffffff")).toBeCloseTo(63.06, 2);
+});
+
+test("APCA は前景と背景を入れ替えると符号が変わる", () => {
+  const dark = apcaContrast("#111111", "#eeeeee");
+  const light = apcaContrast("#eeeeee", "#111111");
+  expect(dark).toBeGreaterThan(0);
+  expect(light).toBeLessThan(0);
+});
+
+test("APCA は同じ色なら 0", () => {
+  expect(apcaContrast("#7ee787", "#7ee787")).toBe(0);
+});
+
+test("OKLab は往復しても元の色に戻る", () => {
+  for (const color of ["#1a7f37", "#eef1ee", "#000000", "#ffffff", "#79c0ff"]) {
+    expect(formatHex(fromOklab(toOklab(color)))).toBe(color);
+  }
+});
+
+test("基準を満たしていれば元の色をそのまま返す", () => {
+  const result = suggestAccessible("#1b2220", "#eef1ee");
+  expect(result!.color).toBe("#1b2220");
+  expect(result!.distance).toBe(0);
+});
+
+test("足りない色には、基準を満たす最も近い色を提案する", () => {
+  // 今日このサイトで実際に 4.46 で落ちた組み合わせ
+  const result = suggestAccessible("#1a7f37", "#eef1ee")!;
+  expect(result.ratio).toBeGreaterThanOrEqual(4.5);
+  expect(result.level).toBe("AA");
+  // 色相を保ったまま明度だけを動かすので、変化はごくわずか
+  expect(result.distance).toBeLessThan(0.02);
+});
+
+test("大きい文字や AAA では目標値が変わる", () => {
+  const aa = suggestAccessible("#1a7f37", "#eef1ee")!;
+  const aaa = suggestAccessible("#1a7f37", "#eef1ee", { level: "AAA" })!;
+  expect(aaa.ratio).toBeGreaterThanOrEqual(7);
+  expect(aaa.distance).toBeGreaterThan(aa.distance);
+  // 大きい文字なら 3:1 でよいので、元の色のままで通る
+  expect(suggestAccessible("#1a7f37", "#eef1ee", { large: true })!.distance).toBe(0);
+});
+
+test("明度を振り切っても届かない場合は undefined", () => {
+  // 中間グレーの背景に対して AAA（7:1）は、明度をどちらに振っても届かない
+  expect(suggestAccessible("#808080", "#808080", { level: "AAA" })).toBeUndefined();
+});
+
+test("色覚シミュレーションで無彩色は変わらない", () => {
+  // 行列の各行の合計が 1 なので、無彩色はそのまま通る
+  for (const type of ["protanopia", "deuteranopia", "tritanopia"] as const) {
+    expect(simulateColorVision("#808080", type)).toBe("#808080");
+    expect(simulateColorVision("#000000", type)).toBe("#000000");
+    expect(simulateColorVision("#ffffff", type)).toBe("#ffffff");
+  }
+});
+
+test("1型・2型では赤と緑が近づき、3型では近づかない", () => {
+  const normal = colorDistance("#ff0000", "#00ff00");
+  const deutan = colorDistance(
+    simulateColorVision("#ff0000", "deuteranopia"),
+    simulateColorVision("#00ff00", "deuteranopia"),
+  );
+  const tritan = colorDistance(
+    simulateColorVision("#ff0000", "tritanopia"),
+    simulateColorVision("#00ff00", "tritanopia"),
+  );
+
+  expect(deutan).toBeLessThan(normal / 2);
+  // 3型は青黄の特性なので、赤と緑の区別は保たれる
+  expect(tritan).toBeGreaterThan(deutan);
+});
+
+test("最も見分けづらくなる特性を先頭に返す", () => {
+  const [worst] = distancesAcrossVision("#ff0000", "#00ff00");
+  expect(worst!.type).toBe("deuteranopia");
+
+  const results = distancesAcrossVision("#000000", "#ffffff");
+  expect(results).toHaveLength(4);
+  // 白黒はどの特性でも変わらないので、距離は全部同じ
+  expect(new Set(results.map((r) => r.distance.toFixed(6))).size).toBe(1);
 });
