@@ -40,7 +40,7 @@
     "release": "bumpp && npm publish"
   },
   "devDependencies": {
-    "@types/node": "^26.1.1",
+    "@types/node": "^26.4.1",
     "bumpp": "catalog:",
     "typescript": "^7.0.2",
     "vite": "catalog:",
