@@ -53,14 +53,11 @@ cd apps/website && pnpm exec playwright install chromium
 基準画像は撮影したプラットフォームごとに別ファイルになる（`matrix-chromium-darwin.png` / `matrix-chromium-linux.png`）。CI は Linux なので、**見た目を意図的に変えたときは両方を更新する**。
 
 ```bash
-# macOS 用（手元で）
+# macOS 用は手元で、Linux 用は Linux の上で同じものを実行する
 vp run website#test -u
-
-# Linux 用（CI で作らせて持ち帰る）
-gh workflow run update-screenshots.yml
-gh run download <run-id> -n screenshots -D /tmp/shots
-cp /tmp/shots/app.test.ts/matrix-chromium-linux.png apps/website/tests/browser/__screenshots__/app.test.ts/
 ```
+
+CI には Linux 用を作り直す手段が無い。Linux の環境を用意して撮り、`matrix-chromium-linux.png` をコミットする。
 
 ## ライブラリ
 
