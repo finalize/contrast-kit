@@ -21,16 +21,9 @@ vp run -r build   # 全パッケージのビルド
 
 ## デプロイ
 
-`apps/website` は Cloudflare Workers の静的アセットとして配信する。main にマージされると CI が自動でデプロイする。
+いまは公開していない。2026-11-02 に Cloudflare の Worker（`contrast-kit`）を消し、CI からデプロイを外した。依存の自動更新（Dependabot と自動マージ）も止めた。
 
-必要なシークレット（リポジトリに登録する）:
-
-```bash
-gh secret set CLOUDFLARE_API_TOKEN --repo finalize/contrast-kit
-gh secret set CLOUDFLARE_ACCOUNT_ID --repo finalize/contrast-kit
-```
-
-手元から流したいときは `cd apps/website && pnpm exec wrangler deploy`（初回だけ `wrangler login`）。
+`apps/website` は Cloudflare Workers の静的アセットとして配信する設定（`apps/website/wrangler.jsonc`）のまま残してある。また出すときは、この設定で Worker を作り直す。
 
 ## テスト
 
